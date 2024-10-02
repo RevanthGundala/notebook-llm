@@ -108,7 +108,7 @@ export default function Component() {
       }
     }
   };
-
+  if (!ready) return <div>Loading...</div>;
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-800 via-purple-800 to-violet-700">
       <div className="absolute inset-0 bg-grid-white/[0.1] -z-10"></div>
