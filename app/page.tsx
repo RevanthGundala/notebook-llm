@@ -14,7 +14,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, User } from "lucide-react";
+import { Heart, User as UserIcon } from "lucide-react";
+import { usePrivy } from "@privy-io/react-auth";
 
 type Post = {
   id: number;
@@ -25,11 +26,6 @@ type Post = {
   author_image: string | null;
 };
 
-type User = {
-  name: string;
-  image: string;
-};
-
 export default function Component() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [newPost, setNewPost] = useState({
@@ -38,46 +34,17 @@ export default function Component() {
     isAnonymous: false,
   });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session) {
-        const { user } = session;
-        setCurrentUser({
-          name: user.user_metadata.name,
-          image: user.user_metadata.avatar_url,
-        });
-      }
-    };
-    getUser();
-
-    // Listen for auth changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          setCurrentUser({
-            name: session.user.user_metadata.name,
-            image: session.user.user_metadata.avatar_url,
-          });
-        } else {
-          setCurrentUser(null);
-        }
-      }
-    );
-
-    // Cleanup on unmount
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
+  const { user, login, logout, ready } = usePrivy();
+  const [name, setName] = useState("");
+  const [image, setImage] = useState("");
 
   useEffect(() => {
     fetchPosts();
-  }, []);
+    if (user) {
+      setName(user.twitter?.username || user.wallet?.address || "");
+      setImage(user.twitter?.profilePictureUrl || "");
+    }
+  }, [ready, user]);
 
   const fetchPosts = async () => {
     const { data, error } = await supabase
@@ -90,6 +57,15 @@ export default function Component() {
 
   const handleLike = async (id: number) => {
     const post = posts.find((post) => post.id === id);
+    if (!user) {
+      return;
+    }
+    if (
+      post?.author_name === user.twitter?.username ||
+      post?.author_name === user.wallet?.address
+    ) {
+      return;
+    }
     if (post) {
       const { error } = await supabase
         .from("posts")
@@ -108,13 +84,18 @@ export default function Component() {
   };
 
   const handleSubmit = async () => {
+    const author_name = newPost.isAnonymous
+      ? null
+      : user?.twitter
+      ? user.twitter.username
+      : user?.wallet?.address;
     if (newPost.title && newPost.link) {
       const postToInsert = {
         title: newPost.title,
         link: newPost.link,
         likes: 0,
-        author_name: newPost.isAnonymous ? null : currentUser?.name,
-        author_image: newPost.isAnonymous ? null : currentUser?.image,
+        author_name,
+        author_image: image,
       };
       const { error } = await supabase.from("posts").insert([postToInsert]);
       if (error) {
@@ -137,28 +118,21 @@ export default function Component() {
             NotebookLLM Podcasts
           </h1>
           <div className="flex items-center space-x-4">
-            {currentUser ? (
+            {user ? (
               <>
                 <div className="flex items-center space-x-2">
                   <Avatar>
-                    <AvatarImage
-                      src={currentUser.image}
-                      alt={currentUser.name}
-                    />
-                    <AvatarFallback>
-                      {currentUser.name.charAt(0)}
-                    </AvatarFallback>
+                    <AvatarImage src={image} alt={name} />
+                    <AvatarFallback>{name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <span className="text-sm font-medium text-gray-100">
-                    {currentUser.name}
+                    {name}
                   </span>
                 </div>
                 <Button
                   variant="outline"
-                  className="text-gray-100 border-gray-300 hover:bg-gray-600"
                   onClick={async () => {
-                    await supabase.auth.signOut();
-                    setCurrentUser(null);
+                    await logout();
                   }}
                 >
                   Sign Out
@@ -218,15 +192,8 @@ export default function Component() {
                 </Dialog>
               </>
             ) : (
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  await supabase.auth.signInWithOAuth({
-                    provider: "twitter",
-                  });
-                }}
-              >
-                Sign In with X
+              <Button variant="outline" onClick={() => login()}>
+                Sign In
               </Button>
             )}
           </div>
@@ -263,7 +230,7 @@ export default function Component() {
                           <>
                             <Avatar>
                               <AvatarFallback>
-                                <User className="w-4 h-4 text-gray-300" />
+                                <UserIcon className="w-4 h-4 text-gray-300" />
                               </AvatarFallback>
                             </Avatar>
                             <span className="text-sm font-medium text-gray-100">
