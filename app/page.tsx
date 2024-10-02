@@ -91,7 +91,7 @@ export default function Component() {
   const handleLike = async (id: number) => {
     const post = posts.find((post) => post.id === id);
     if (post) {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("posts")
         .update({ likes: post.likes + 1 })
         .eq("id", id);
@@ -116,9 +116,7 @@ export default function Component() {
         author_name: newPost.isAnonymous ? null : currentUser?.name,
         author_image: newPost.isAnonymous ? null : currentUser?.image,
       };
-      const { data, error } = await supabase
-        .from("posts")
-        .insert([postToInsert]);
+      const { error } = await supabase.from("posts").insert([postToInsert]);
       if (error) {
         console.log("Error inserting post:", error);
       } else {
@@ -135,7 +133,9 @@ export default function Component() {
       <div className="absolute inset-0 bg-grid-white/[0.1] -z-10"></div>
       <header className="bg-gray-700 bg-opacity-80 backdrop-blur-sm shadow-lg sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-white">Social Feed</h1>
+          <h1 className="text-2xl font-bold text-white">
+            NotebookLLM Podcasts
+          </h1>
           <div className="flex items-center space-x-4">
             {currentUser ? (
               <>
@@ -220,14 +220,13 @@ export default function Component() {
             ) : (
               <Button
                 variant="outline"
-                className="text-gray-100 border-gray-300 hover:bg-gray-600"
                 onClick={async () => {
                   await supabase.auth.signInWithOAuth({
                     provider: "twitter",
                   });
                 }}
               >
-                Sign In with Twitter
+                Sign In with X
               </Button>
             )}
           </div>
@@ -249,8 +248,8 @@ export default function Component() {
                           <>
                             <Avatar>
                               <AvatarImage
-                                src={post.author_image}
-                                alt={post.author_name}
+                                src={post.author_image || ""}
+                                alt={post.author_name || ""}
                               />
                               <AvatarFallback>
                                 {post.author_name.charAt(0)}
